@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MockApi/MockApi.csproj" />
+  <Project Path="SreAgent.Tests/SreAgent.Tests.csproj" />
+  <Project Path="SreAgent/SreAgent.csproj" />
+  <Project Path="TargetApp/TargetApp.csproj" />
+</Solution>

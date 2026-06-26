@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>運行情報</title>
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+    <div class="stage">
+        <div class="phone">
+            <div class="phone-speaker"></div>
+            <div class="screen">
+                <!-- ステータスバー（装飾） -->
+                <div class="statusbar">
+                    <span class="sb-time" id="sb-clock">9:41</span>
+                    <span class="sb-icons">
+                        <span class="sb-signal"></span>
+                        <span class="sb-wifi">📶</span>
+                        <span class="sb-battery"></span>
+                    </span>
+                </div>
+
+                <!-- アプリヘッダー -->
+                <header class="app-header">
+                    <div class="app-title">🚆 運行情報</div>
+                    <button class="refresh-btn" id="refresh-btn" type="button" aria-label="更新">⟳</button>
+                </header>
+
+                <!-- 自動更新インジケータ -->
+                <div class="live-indicator" id="live-indicator">
+                    <span class="live-dot"></span>
+                    <span id="live-text">読み込み中…</span>
+                </div>
+
+                <!-- 障害バナー（ドリフト時のみ表示） -->
+                <div class="alert-banner" id="alert-banner" hidden>
+                    一部路線の運行情報を更新できません
+                </div>
+
+                <!-- 路線リスト -->
+                <ul class="line-list">
+                    <!-- ★ 実データ（外部 API に連動して変化） -->
+                    <li class="line-row" id="live-line">
+                        <div class="line-main">
+                            <span class="line-name">山手線</span>
+                            <span class="line-sub" id="live-line-sub">取得中…</span>
+                        </div>
+                        <span class="line-badge" id="live-line-badge">
+                            <span class="dot"></span><span id="live-line-badge-text">…</span>
+                        </span>
+                    </li>
+
+                    <!-- 以下は装飾（静的・常に平常運転） -->
+                    <li class="line-row">
+                        <div class="line-main">
+                            <span class="line-name">中央線快速</span>
+                            <span class="line-sub">遅延情報はありません</span>
+                        </div>
+                        <span class="line-badge badge-normal"><span class="dot"></span>平常運転</span>
+                    </li>
+                    <li class="line-row">
+                        <div class="line-main">
+                            <span class="line-name">京浜東北線</span>
+                            <span class="line-sub">遅延情報はありません</span>
+                        </div>
+                        <span class="line-badge badge-normal"><span class="dot"></span>平常運転</span>
+                    </li>
+                    <li class="line-row">
+                        <div class="line-main">
+                            <span class="line-name">総武線各停</span>
+                            <span class="line-sub">遅延情報はありません</span>
+                        </div>
+                        <span class="line-badge badge-normal"><span class="dot"></span>平常運転</span>
+                    </li>
+                </ul>
+
+                <p class="screen-note">交通各社の運行情報をまとめてお届けします</p>
+            </div>
+        </div>
+
+        <a class="repo-link" href="https://github.com/takaT-toho/self-healing-sre-agent" target="_blank" rel="noopener">repo</a>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

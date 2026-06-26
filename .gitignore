@@ -1,0 +1,15 @@
+# StubGitOperator がローカル FS に書き出す擬似 PR の出力先
+stub-output/
+
+# .NET build outputs
+bin/
+obj/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# OS
+.DS_Store
+Thumbs.db

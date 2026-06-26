@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TargetApp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SourceReader.Read("FetchStatusAsync") が AGENT-MANAGED マーカー範囲を読むため、
+         コンパイル対象の TransitService.cs を埋め込みリソースとしてアセンブリに同梱する。 -->
+    <EmbeddedResource Include="TransitService.cs" LogicalName="TransitService.cs" />
+  </ItemGroup>
+
+</Project>

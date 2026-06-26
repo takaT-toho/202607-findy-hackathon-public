@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SRE Agent — 操作履歴ダッシュボード</title>
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+    <header>
+        <h1>🤖 SRE Agent Dashboard</h1>
+        <p class="tagline">発生エラーをケース単位で並列追跡（Triage → Fix → PR）</p>
+    </header>
+
+    <main>
+        <section id="summary">
+            <span class="summary-total" id="summary-total">0 cases</span>
+            <span class="chip chip-attention" id="chip-attention" data-filter="attention">⚠️ 要対応 0</span>
+            <span class="chip chip-active" id="chip-active" data-filter="active">🔧 進行中 0</span>
+            <span class="chip chip-done" id="chip-done" data-filter="done">🎉 完了 0</span>
+        </section>
+
+        <div id="attention-banner" hidden></div>
+
+        <section id="controls">
+            <div class="filters" id="filters">
+                <button type="button" class="filter is-active" data-filter="all">すべて</button>
+                <button type="button" class="filter" data-filter="attention">要対応</button>
+                <button type="button" class="filter" data-filter="active">進行中</button>
+                <button type="button" class="filter" data-filter="done">完了</button>
+            </div>
+            <button id="refresh-button" type="button">Refresh</button>
+            <label class="auto-refresh">
+                <input type="checkbox" id="auto-refresh-checkbox" checked />
+                Auto-refresh (3s)
+            </label>
+        </section>
+
+        <section id="case-list">
+            <div class="empty-state" id="empty-state">
+                Webhook 受信待ち... Target App でエラーを発生させてください。
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <small>SYS-03 SRE Agent · <a href="https://github.com/takaT-toho/self-healing-sre-agent" target="_blank">repo</a></small>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>
