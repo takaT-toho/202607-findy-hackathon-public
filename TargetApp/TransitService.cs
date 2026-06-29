@@ -20,35 +20,31 @@ public class TransitService
     // [AGENT-MANAGED-START: FetchStatusAsync]
     public async Task<TrainStatus> FetchStatusAsync()
     {
+        record TransitResponse(string line_id, string line_name, string status, DelayInfo delays, DateTimeOffset last_updated)
+        {
+            public TrainStatus ToTrainStatus() => new() 
+            {
+                LineId = line_id,
+                LineName = line_name,
+                Status = status,
+                DelayMinutes = delays.value,
+                LastUpdated = last_updated
+            };
+        }
+        record DelayInfo(int value, string unit);
+
         var raw = await _http.GetStringAsync("/api/transit/status");
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TrainStatusDto>(raw);
-            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
-            return new TrainStatus
-            {
-                LineId = dto.LineId,
-                LineName = dto.LineName,
-                Status = dto.Status,
-                DelayMinutes = dto.Delays?.Value ?? 0,
-                LastUpdated = dto.LastUpdated
-            };
+            var dto = JsonSerializer.Deserialize<TransitResponse>(raw);
+            return dto?.ToTrainStatus() 
+                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
         {
             throw new TransitJsonException(raw, ex);
         }
     }
-
-    private record TrainStatusDto(
-        [property: JsonPropertyName("line_id")] string LineId,
-        [property: JsonPropertyName("line_name")] string LineName,
-        [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] DelaysInfo? Delays,
-        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated
-    );
-
-    private record DelaysInfo([property: JsonPropertyName("value")] int Value);
-// [AGENT-MANAGED-END: FetchStatusAsync]
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 }
