@@ -18,24 +18,25 @@ public class TransitService
     // API から取得した JSON を TrainStatus に変換して返す。
     // 変換に失敗したら、生 JSON を保持した TransitJsonException を投げる。
     // [AGENT-MANAGED-START: FetchStatusAsync]
-    public record TrainStatusDto( [property: JsonPropertyName("line_id")] string LineId, [property: JsonPropertyName("line_name")] string LineName, [property: JsonPropertyName("status")] string Status, [property: JsonPropertyName("delays")] DelaysDto Delays, [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated );
-    public record DelaysDto( [property: JsonPropertyName("value")] int Value );
-
     public async Task<TrainStatus> FetchStatusAsync()
     {
+        record DelayInfo(int value, string unit);
+        record ApiResponse(string line_id, string line_name, string status, DelayInfo delays, DateTimeOffset last_updated);
+
         var raw = await _http.GetStringAsync("/api/transit/status");
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TrainStatusDto>(raw);
-            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            var dto = JsonSerializer.Deserialize<ApiResponse>(raw)
+                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            
             return new TrainStatus
             {
-                LineId = dto.LineId,
-                LineName = dto.LineName,
-                Status = dto.Status,
-                DelayMinutes = dto.Delays.Value,
-                LastUpdated = dto.LastUpdated
+                LineId = dto.line_id,
+                LineName = dto.line_name,
+                Status = dto.status,
+                DelayMinutes = dto.delays.value,
+                LastUpdated = dto.last_updated
             };
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
