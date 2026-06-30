@@ -27,7 +27,6 @@ public class GitOperator : IGitOperator
         };
         _github = client;
     }
-
     public async Task<Result<string, GitOperatorError>> CreatePrAsync(PrContext ctx)
     {
         var output = ctx.Output;
@@ -68,19 +67,38 @@ public class GitOperator : IGitOperator
                 return Result.Failure<string, GitOperatorError>(new MarkerMissingInOutputError(ex.Message));
             }
 
-            // 4. ブランチを作成する。ブランチ名はエラー署名から決まるので、同じエラーは同名ブランチになり、
-            //    GitHub が「既に存在する」を返すことで重複 PR を自然に防げる。
+            // 4. ブランチを作成する。ブランチ名はエラー署名から決まる。
             var branchName = GenerateBranchName(methodName, ctx.Signature);
             var baseRef = await _github.Git.Reference.Get(owner, name, $"heads/{_settings.BaseBranch}");
+            
+            // コミット更新対象ファイルのSHA。初期値は base ブランチのファイル SHA
+            string targetFileSha = current.Sha;
+            
             try
             {
                 await _github.Git.Reference.Create(owner, name,
                     new NewReference($"refs/heads/{branchName}", baseRef.Object.Sha));
+                _logger.LogInformation("Created new branch '{BranchName}' from base branch SHA '{Sha}'", branchName, baseRef.Object.Sha);
             }
             catch (ApiValidationException ex) when (IsAlreadyExists(ex))
             {
-                // 既存ブランチ = 同じエラーの PR が既にある。重複として扱う。
-                return Result.Failure<string, GitOperatorError>(new BranchAlreadyExistsError(branchName));
+                // すでに同名ブランチがある場合：
+                // ベースへのリセット（force: true）は既存PRの自動クローズ（差分0化によるGitHub仕様）を引き起こすため行わない。
+                // 単に既存ブランチ上のファイルの最新 SHA を再取得して、競合を防ぎつつ上書きコミットできるようにする。
+                _logger.LogInformation("Branch '{BranchName}' already exists. Reusing it and retrieving target file SHA...", branchName);
+                try
+                {
+                    var branchContents = await _github.Repository.Content.GetAllContentsByRef(
+                        owner, name, output.FilePath, branchName);
+                    if (branchContents.Count > 0)
+                    {
+                        targetFileSha = branchContents[0].Sha;
+                    }
+                }
+                catch (NotFoundException)
+                {
+                    // 万が一ブランチ上にファイルがない場合は main ブランチの SHA をそのまま利用
+                }
             }
 
             // 5. 変更をコミットする。
@@ -88,21 +106,55 @@ public class GitOperator : IGitOperator
                 new UpdateFileRequest(
                     message: $"auto-fix: {methodName} for new API schema",
                     content: replaced,
-                    sha: current.Sha,
+                    sha: targetFileSha, // 強制更新されたブランチ上の SHA を設定
                     branch: branchName));
 
-            // 6. PR を作成する。
+            // 6. PR を作成する。すでに PR がある場合は再利用（フォールバック）する。
+            PullRequest pr;
             var prBody = BuildPrBody(ctx);
-            var pr = await _github.PullRequest.Create(owner, name,
-                new NewPullRequest(
-                    title: $"auto-fix: {methodName}",
-                    head: branchName,
-                    baseRef: _settings.BaseBranch)
+            try
+            {
+                pr = await _github.PullRequest.Create(owner, name,
+                    new NewPullRequest(
+                        title: $"auto-fix: {methodName}",
+                        head: branchName,
+                        baseRef: _settings.BaseBranch)
+                    {
+                        Body = prBody
+                    });
+                _logger.LogInformation("Created PR #{Number}: {Url}", pr.Number, pr.HtmlUrl);
+            }
+            catch (ApiValidationException ex) when (IsPrAlreadyExists(ex))
+            {
+                _logger.LogInformation("Pull Request for branch '{BranchName}' already exists. Retrieving existing PR...", branchName);
+                
+                // 既存のオープンなPRを取得
+                var prs = await _github.PullRequest.GetAllForRepository(owner, name, new PullRequestRequest
                 {
-                    Body = prBody
+                    Head = $"{owner}:{branchName}",
+                    State = ItemStateFilter.Open
                 });
 
-            _logger.LogInformation("Created PR #{Number}: {Url}", pr.Number, pr.HtmlUrl);
+                if (prs.Count > 0)
+                {
+                    pr = prs[0];
+                    _logger.LogInformation("Reusing existing PR #{Number}: {Url}", pr.Number, pr.HtmlUrl);
+                    // PRの本文を最新情報で上書き更新
+                    try
+                    {
+                        await _github.PullRequest.Update(owner, name, pr.Number, new PullRequestUpdate { Body = prBody });
+                    }
+                    catch (Exception updateEx)
+                    {
+                        _logger.LogWarning(updateEx, "Failed to update body of existing PR #{Number}", pr.Number);
+                    }
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
             return Result.Success<string, GitOperatorError>(pr.HtmlUrl);
         }
         catch (ApiException ex)
@@ -112,7 +164,7 @@ public class GitOperator : IGitOperator
         }
     }
 
-    // 「ブランチが既に存在する」エラーを判定する。GitHub は構造化エラーとメッセージの両方で返すので両方拾う。
+    // 「ブランチが既に存在する」エラーを判定する。
     private static bool IsAlreadyExists(ApiValidationException ex) =>
         ex.ApiError?.Errors?.Any(e => string.Equals(e.Code, "already_exists", StringComparison.OrdinalIgnoreCase)) == true
         || ContainsAlreadyExists(ex.ApiError?.Message)
@@ -121,6 +173,10 @@ public class GitOperator : IGitOperator
     private static bool ContainsAlreadyExists(string? s) =>
         s is not null && s.Contains("already exists", StringComparison.OrdinalIgnoreCase);
 
+    // 「PRが既に存在する」エラーを判定する。
+    private static bool IsPrAlreadyExists(ApiValidationException ex) =>
+        ex.ApiError?.Errors?.Any(e => e.Message != null && e.Message.Contains("A pull request already exists", StringComparison.OrdinalIgnoreCase)) == true
+        || ex.Message?.Contains("A pull request already exists", StringComparison.OrdinalIgnoreCase) == true;
     // PR 本文を組み立てる。概要に加えて、レビュアー向けの検知方式・検証結果・スキーマ差分などを載せる。
     private static string BuildPrBody(PrContext ctx)
     {
