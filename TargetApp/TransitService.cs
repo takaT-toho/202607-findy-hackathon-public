@@ -24,16 +24,14 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var dto = JsonSerializer.Deserialize<TransitResponseDto>(raw, options) 
-                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
-
+            var dto = JsonSerializer.Deserialize<TrainStatusDto>(raw);
+            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
             return new TrainStatus
             {
                 LineId = dto.LineId,
                 LineName = dto.LineName,
                 Status = dto.Status,
-                DelayMinutes = dto.Delays.Value,
+                DelayMinutes = dto.Delays?.Value ?? 0,
                 LastUpdated = dto.LastUpdated
             };
         }
@@ -42,17 +40,15 @@ public class TransitService
             throw new TransitJsonException(raw, ex);
         }
     }
-    // [AGENT-MANAGED-END: FetchStatusAsync]
 
-    internal record TransitResponseDto(
+    private record TrainStatusDto(
         [property: JsonPropertyName("line_id")] string LineId,
         [property: JsonPropertyName("line_name")] string LineName,
         [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] DelayDto Delays,
+        [property: JsonPropertyName("delays")] DelayInfoDto? Delays,
         [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated
     );
 
-    internal record DelayDto(
-        [property: JsonPropertyName("value")] int Value
-    );
+    private record DelayInfoDto([property: JsonPropertyName("value")] int Value);
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 }
