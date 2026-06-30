@@ -110,7 +110,3 @@ gcloud run deploy target-app --source TargetApp --region "$REGION" --project "$P
 ```
 
 本番認証情報（GitHub PAT・サービスアカウント・Gemini のリージョン等）は環境変数で注入し、**リポジトリにはコミットしないでください**。
-
-## 設計方針
-
-- 環境分離（開発 Stub ↔ 本番実装）、Design by Contract（メソッド契約のコメント明記）、PR ルールなどの開発規約は [CLAUDE.md](CLAUDE.md) にまとまっています。
