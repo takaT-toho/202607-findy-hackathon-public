@@ -18,12 +18,8 @@ public class TransitService
     // API から取得した JSON を TrainStatus に変換して返す。
     // 変換に失敗したら、生 JSON を保持した TransitJsonException を投げる。
     // [AGENT-MANAGED-START: FetchStatusAsync]
-    public record TransitResponseDto(
-        [property: JsonPropertyName("line_id")] string LineId,
-        [property: JsonPropertyName("line_name")] string LineName,
-        [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] JsonElement Delays,
-        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
+    public record TransitApiResponse(string line_id, string line_name, string status, TransitDelay delays, DateTimeOffset last_updated);
+    public record TransitDelay(int value, string unit);
 
     public async Task<TrainStatus> FetchStatusAsync()
     {
@@ -31,28 +27,22 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TransitResponseDto>(raw) 
-                ?? throw new JsonException("Deserialized result was null");
-            
-            int delayMinutes = 0;
-            if (dto.Delays.TryGetProperty("value", out var valueElement))
-            {
-                delayMinutes = valueElement.GetInt32();
-            }
+            var dto = JsonSerializer.Deserialize<TransitApiResponse>(raw);
+            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
 
             return new TrainStatus
             {
-                LineId = dto.LineId,
-                LineName = dto.LineName,
-                Status = dto.Status,
-                DelayMinutes = delayMinutes,
-                LastUpdated = dto.LastUpdated
+                LineId = dto.line_id,
+                LineName = dto.line_name,
+                Status = dto.status,
+                DelayMinutes = dto.delays.value,
+                LastUpdated = dto.last_updated
             };
         }
-        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        catch (JsonException ex) when (ex is not TransitJsonException)
         {
             throw new TransitJsonException(raw, ex);
         }
     }
-// [AGENT-MANAGED-END: FetchStatusAsync]
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 }
