@@ -24,16 +24,16 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var response = JsonSerializer.Deserialize<TransitResponse>(raw);
-            if (response == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            var dto = JsonSerializer.Deserialize<TransitResponseDto>(raw);
+            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
 
             return new TrainStatus
             {
-                LineId = response.LineId,
-                LineName = response.LineName,
-                Status = response.Status,
-                DelayMinutes = response.Delays?.Value ?? 0,
-                LastUpdated = response.LastUpdated
+                LineId = dto.LineId,
+                LineName = dto.LineName,
+                Status = dto.Status,
+                DelayMinutes = dto.Delays.Value,
+                LastUpdated = dto.LastUpdated
             };
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
@@ -42,15 +42,15 @@ public class TransitService
         }
     }
 
-    private record TransitResponse(
+    private record TransitResponseDto(
         [property: JsonPropertyName("line_id")] string LineId,
         [property: JsonPropertyName("line_name")] string LineName,
         [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] TransitDelayInfo? Delays,
+        [property: JsonPropertyName("delays")] DelayInfoDto Delays,
         [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated
     );
 
-    private record TransitDelayInfo(
+    private record DelayInfoDto(
         [property: JsonPropertyName("value")] int Value,
         [property: JsonPropertyName("unit")] string Unit
     );
