@@ -24,10 +24,12 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TransitResponseDto>(raw);
+            var dto = JsonSerializer.Deserialize<TrainStatusResponse>(raw);
+            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+
             return new TrainStatus
             {
-                LineId = dto!.LineId,
+                LineId = dto.LineId,
                 LineName = dto.LineName,
                 Status = dto.Status,
                 DelayMinutes = dto.Delays.Value,
@@ -35,18 +37,20 @@ public class TransitService
             };
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
-        {
+        { 
             throw new TransitJsonException(raw, ex);
         }
     }
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 
-    private record TransitResponseDto(
-        [property: System.Text.Json.Serialization.JsonPropertyName("line_id")] string LineId,
-        [property: System.Text.Json.Serialization.JsonPropertyName("line_name")] string LineName,
-        [property: System.Text.Json.Serialization.JsonPropertyName("status")] string Status,
-        [property: System.Text.Json.Serialization.JsonPropertyName("delays")] DelaysDto Delays,
-        [property: System.Text.Json.Serialization.JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
+    private record TrainStatusResponse(
+        [property: JsonPropertyName("line_id")] string LineId,
+        [property: JsonPropertyName("line_name")] string LineName,
+        [property: JsonPropertyName("status")] string Status,
+        [property: JsonPropertyName("delays")] DelayInfo Delays,
+        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
 
-    private record DelaysDto([property: System.Text.Json.Serialization.JsonPropertyName("value")] int Value);
-// [AGENT-MANAGED-END: FetchStatusAsync]
+    private record DelayInfo(
+        [property: JsonPropertyName("value")] int Value,
+        [property: JsonPropertyName("unit")] string Unit);
 }
