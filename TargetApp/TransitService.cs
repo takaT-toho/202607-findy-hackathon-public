@@ -18,16 +18,8 @@ public class TransitService
     // API から取得した JSON を TrainStatus に変換して返す。
     // 変換に失敗したら、生 JSON を保持した TransitJsonException を投げる。
     // [AGENT-MANAGED-START: FetchStatusAsync]
-    public record TrainStatusRaw
-    {
-        [JsonPropertyName("line_id")] public required string LineId { get; init; }
-        [JsonPropertyName("line_name")] public required string LineName { get; init; }
-        [JsonPropertyName("status")] public required string Status { get; init; }
-        [JsonPropertyName("delays")] public required DelayInfo Delays { get; init; }
-        [JsonPropertyName("last_updated")] public required DateTimeOffset LastUpdated { get; init; }
-
-        public record DelayInfo { [JsonPropertyName("value")] public required int Value { get; init; } }
-    }
+    public record TransitResponse(string line_id, string line_name, string status, TransitDelay delays, DateTimeOffset last_updated);
+    public record TransitDelay(int value, string unit);
 
     public async Task<TrainStatus> FetchStatusAsync()
     {
@@ -35,15 +27,16 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TrainStatusRaw>(raw)
-                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            var dto = JsonSerializer.Deserialize<TransitResponse>(raw);
+            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+
             return new TrainStatus
             {
-                LineId = dto.LineId,
-                LineName = dto.LineName,
-                Status = dto.Status,
-                DelayMinutes = dto.Delays.Value,
-                LastUpdated = dto.LastUpdated
+                LineId = dto.line_id,
+                LineName = dto.line_name,
+                Status = dto.status,
+                DelayMinutes = dto.delays.value,
+                LastUpdated = dto.last_updated
             };
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
