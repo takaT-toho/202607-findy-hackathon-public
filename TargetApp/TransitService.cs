@@ -27,8 +27,8 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TransitResponse>(raw);
-            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            var dto = JsonSerializer.Deserialize<TransitResponse>(raw) 
+                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
 
             return new TrainStatus
             {
