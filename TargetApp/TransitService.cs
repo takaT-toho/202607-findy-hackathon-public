@@ -20,18 +20,20 @@ public class TransitService
     // [AGENT-MANAGED-START: FetchStatusAsync]
     public async Task<TrainStatus> FetchStatusAsync()
     {
+        record TransitDto(string line_id, string line_name, string status, Dictionary<string, JsonElement> delays, DateTimeOffset last_updated);
+
         var raw = await _http.GetStringAsync("/api/transit/status");
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<NewTrainStatus>(raw) ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            var dto = JsonSerializer.Deserialize<TransitDto>(raw) ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
             return new TrainStatus
             {
-                LineId = dto.LineId,
-                LineName = dto.LineName,
-                Status = dto.Status,
-                DelayMinutes = dto.Delays?.Value ?? 0,
-                LastUpdated = dto.LastUpdated
+                LineId = dto.line_id,
+                LineName = dto.line_name,
+                Status = dto.status,
+                DelayMinutes = dto.delays.TryGetValue("value", out var val) && val.TryGetInt32(out var minutes) ? minutes : 0,
+                LastUpdated = dto.last_updated
             };
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
@@ -39,16 +41,5 @@ public class TransitService
             throw new TransitJsonException(raw, ex);
         }
     }
-
-    private record NewTrainStatus(
-        [property: JsonPropertyName("line_id")] string LineId,
-        [property: JsonPropertyName("line_name")] string LineName,
-        [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] DelaysInfo? Delays,
-        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
-
-    private record DelaysInfo(
-        [property: JsonPropertyName("value")] int Value,
-        [property: JsonPropertyName("unit")] string Unit);
-// [AGENT-MANAGED-END: FetchStatusAsync]
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 }
