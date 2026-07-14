@@ -20,33 +20,29 @@ public class TransitService
     // [AGENT-MANAGED-START: FetchStatusAsync]
     public async Task<TrainStatus> FetchStatusAsync()
     {
+        record DelayInfo(int value, string unit);
+        record TransitDto(string line_id, string line_name, string status, DelayInfo delays, DateTimeOffset last_updated);
+
         var raw = await _http.GetStringAsync("/api/transit/status");
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TrainStatusDto>(raw);
+            var dto = JsonSerializer.Deserialize<TransitDto>(raw) 
+                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            
             return new TrainStatus
             {
-                LineId = dto.LineId,
-                LineName = dto.LineName,
-                Status = dto.Status,
-                DelayMinutes = dto.Delays?.Value ?? 0,
-                LastUpdated = dto.LastUpdated
+                LineId = dto.line_id,
+                LineName = dto.line_name,
+                Status = dto.status,
+                DelayMinutes = dto.delays.value,
+                LastUpdated = dto.last_updated
             };
         }
-        catch (JsonException ex)
+        catch (JsonException ex) when (ex is not TransitJsonException)
         {
             throw new TransitJsonException(raw, ex);
         }
     }
-
-    private record TrainStatusDto(
-        [property: System.Text.Json.Serialization.JsonPropertyName("line_id")] string LineId,
-        [property: System.Text.Json.Serialization.JsonPropertyName("line_name")] string LineName,
-        [property: System.Text.Json.Serialization.JsonPropertyName("status")] string Status,
-        [property: System.Text.Json.Serialization.JsonPropertyName("delays")] DelayDto? Delays,
-        [property: System.Text.Json.Serialization.JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
-
-    private record DelayDto([property: System.Text.Json.Serialization.JsonPropertyName("value")] int Value);
-// [AGENT-MANAGED-END: FetchStatusAsync]
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 }
