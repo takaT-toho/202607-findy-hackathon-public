@@ -46,10 +46,13 @@ public class TransitService
         [property: JsonPropertyName("line_id")] string LineId,
         [property: JsonPropertyName("line_name")] string LineName,
         [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] DelaysDto? Delays,
+        [property: JsonPropertyName("delays")] DelaysInfo? Delays,
         [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated
     );
 
-    private record DelaysDto([property: JsonPropertyName("value")] int Value, [property: JsonPropertyName("unit")] string Unit);
+    private record DelaysInfo(
+        [property: JsonPropertyName("value")] int Value,
+        [property: JsonPropertyName("unit")] string Unit
+    );
 // [AGENT-MANAGED-END: FetchStatusAsync]
 }
