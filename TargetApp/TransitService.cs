@@ -20,28 +20,29 @@ public class TransitService
     // [AGENT-MANAGED-START: FetchStatusAsync]
     public async Task<TrainStatus> FetchStatusAsync()
     {
-        record TransitResponse(string line_id, string line_name, string status, JsonElement delays, DateTimeOffset last_updated);
+        record ApiDelays(int? value, string? unit);
+        record ApiTransitResponse(string line_id, string line_name, string status, ApiDelays? delays, DateTimeOffset last_updated);
 
         var raw = await _http.GetStringAsync("/api/transit/status");
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<TransitResponse>(raw);
-            if (dto == null) throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            var dto = JsonSerializer.Deserialize<ApiTransitResponse>(raw);
+            if (dto == null) throw new JsonException("Deserialized result was null");
 
             return new TrainStatus
             {
                 LineId = dto.line_id,
                 LineName = dto.line_name,
                 Status = dto.status,
-                DelayMinutes = dto.delays.TryGetProperty("value", out var val) ? val.GetInt32() : 0,
+                DelayMinutes = dto.delays?.value ?? 0,
                 LastUpdated = dto.last_updated
             };
         }
-        catch (JsonException ex) when (ex is not TransitJsonException)
+        catch (JsonException ex)
         {
             throw new TransitJsonException(raw, ex);
         }
     }
-// [AGENT-MANAGED-END: FetchStatusAsync]
+    // [AGENT-MANAGED-END: FetchStatusAsync]
 }
