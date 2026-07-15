@@ -24,17 +24,14 @@ public class TransitService
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var response = JsonSerializer.Deserialize<TrainStatusResponse>(raw, options);
-            if (response == null) throw new JsonException("Deserialized result was null");
-            
+            var dto = JsonSerializer.Deserialize<TrainStatusDto>(raw);
             return new TrainStatus
             {
-                LineId = response.LineId,
-                LineName = response.LineName,
-                Status = response.Status,
-                DelayMinutes = response.Delays?.Value ?? 0,
-                LastUpdated = response.LastUpdated
+                LineId = dto!.LineId,
+                LineName = dto.LineName,
+                Status = dto.Status,
+                DelayMinutes = dto.Delays?.Value ?? 0,
+                LastUpdated = dto.LastUpdated
             };
         }
         catch (JsonException ex) when (ex is not TransitJsonException)
@@ -43,15 +40,14 @@ public class TransitService
         }
     }
 
-    private record DelaysDto(
-        [property: JsonPropertyName("value")] int Value,
-        [property: JsonPropertyName("unit")] string Unit);
+    private record TrainStatusDto(
+        [property: System.Text.Json.Serialization.JsonPropertyName("line_id")] string LineId,
+        [property: System.Text.Json.Serialization.JsonPropertyName("line_name")] string LineName,
+        [property: System.Text.Json.Serialization.JsonPropertyName("status")] string Status,
+        [property: System.Text.Json.Serialization.JsonPropertyName("delays")] DelaysDto? Delays,
+        [property: System.Text.Json.Serialization.JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
 
-    private record TrainStatusResponse(
-        [property: JsonPropertyName("line_id")] string LineId,
-        [property: JsonPropertyName("line_name")] string LineName,
-        [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] DelaysDto? Delays,
-        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
+    private record DelaysDto(
+        [property: System.Text.Json.Serialization.JsonPropertyName("value")] int Value);
 // [AGENT-MANAGED-END: FetchStatusAsync]
 }
