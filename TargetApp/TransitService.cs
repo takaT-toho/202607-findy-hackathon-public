@@ -26,12 +26,13 @@ public class TransitService
         {
             var dto = JsonSerializer.Deserialize<TrainStatusDto>(raw)
                 ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            
             return new TrainStatus
             {
                 LineId = dto.LineId,
                 LineName = dto.LineName,
                 Status = dto.Status,
-                DelayMinutes = dto.Delays.Value,
+                DelayMinutes = dto.Delays?.Value ?? 0,
                 LastUpdated = dto.LastUpdated
             };
         }
@@ -40,15 +41,5 @@ public class TransitService
             throw new TransitJsonException(raw, ex);
         }
     }
-
-    private record TrainStatusDto(
-        [property: JsonPropertyName("line_id")] string LineId,
-        [property: JsonPropertyName("line_name")] string LineName,
-        [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("delays")] DelaysDto Delays,
-        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
-
-    private record DelaysDto(
-        [property: JsonPropertyName("value")] int Value);
     // [AGENT-MANAGED-END: FetchStatusAsync]
 }
