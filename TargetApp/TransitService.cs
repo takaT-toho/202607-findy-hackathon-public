@@ -20,29 +20,34 @@ public class TransitService
     // [AGENT-MANAGED-START: FetchStatusAsync]
     public async Task<TrainStatus> FetchStatusAsync()
     {
-        record ApiDelays(int? value, string? unit);
-        record ApiTransitResponse(string line_id, string line_name, string status, ApiDelays? delays, DateTimeOffset last_updated);
-
         var raw = await _http.GetStringAsync("/api/transit/status");
         _logger.LogInformation("Fetched {Length} bytes from transit API", raw.Length);
         try
         {
-            var dto = JsonSerializer.Deserialize<ApiTransitResponse>(raw);
-            if (dto == null) throw new JsonException("Deserialized result was null");
-
+            var dto = JsonSerializer.Deserialize<TrainStatusResponse>(raw) 
+                ?? throw new TransitJsonException(raw, new JsonException("Deserialized result was null"));
+            
             return new TrainStatus
             {
-                LineId = dto.line_id,
-                LineName = dto.line_name,
-                Status = dto.status,
-                DelayMinutes = dto.delays?.value ?? 0,
-                LastUpdated = dto.last_updated
+                LineId = dto.LineId,
+                LineName = dto.LineName,
+                Status = dto.Status,
+                DelayMinutes = dto.Delays?.Value ?? 0,
+                LastUpdated = dto.LastUpdated
             };
         }
-        catch (JsonException ex)
+        catch (JsonException ex) when (ex is not TransitJsonException)
         {
             throw new TransitJsonException(raw, ex);
         }
     }
-    // [AGENT-MANAGED-END: FetchStatusAsync]
+
+    private record DelayInfo([property: JsonPropertyName("value")] int Value, [property: JsonPropertyName("unit")] string Unit);
+    private record TrainStatusResponse(
+        [property: JsonPropertyName("line_id")] string LineId,
+        [property: JsonPropertyName("line_name")] string LineName,
+        [property: JsonPropertyName("status")] string Status,
+        [property: JsonPropertyName("delays")] DelayInfo? Delays,
+        [property: JsonPropertyName("last_updated")] DateTimeOffset LastUpdated);
+// [AGENT-MANAGED-END: FetchStatusAsync]
 }
